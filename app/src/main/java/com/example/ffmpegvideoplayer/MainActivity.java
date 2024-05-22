@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private static BlockingQueue<int[]> rgbBytesQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
 
     // width, height
-    private static int[] videoShape = new int[] {960, 540};
+    private static int[] videoShape = new int[] {1920, 1080};
 
     static {
         System.loadLibrary("ffmpegvideoplayer");
@@ -142,18 +142,5 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static String arrayToString(int[] array) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Love from : ");
-        for (int i = 0; i < 3; i++) {
-            sb.append(array[i]);
-            if (i < array.length - 1) {
-                sb.append(", ");
-            }
-        }
-        return sb.toString();
-    }
-
-    public native String stringFromJNI(String message);
     public native void mainDecoder(String url);
 }
