@@ -192,6 +192,24 @@ public:
         return 0;
     }
 
+    // AVFrame 的内存布局
+    /*             <------------Y-linesize----------->
+      *             <-------------width------------>
+      *             -----------------------------------
+      *             |                              |  |
+      *             |                              |  |
+      *   height    |              Y               |  |
+      *             |                data[0]       |  |
+      *             |                              |  |
+      *             |                              |  |
+      *             -----------------------------------
+      *             |             |  |             |  |
+      * height / 2  |      U      |  |      V      |  |
+      *             |    data[1]  |  | data[2]     |  |
+      *             -----------------------------------
+      *             <---U-linesize--> <--V-linesize--->
+      *             <---U-width--->   <--V-width--->
+  */
     int avFrameYUV420ToARGB8888(AVFrame* frame) {
         int width = frame->width;
         int height = frame->height;
@@ -213,8 +231,9 @@ public:
         for (int th = 0; th < thread_num; th++) {
             process_thread[th] = std::thread(
                         [&frame, &outData, width, height, th, thread_num]() {
-                            int yp = (height / thread_num) * th * width;
-                            for (int j = (height / thread_num) * th; j < (height / thread_num) * th + (height / thread_num); j++) {
+                            int yp = (height / thread_num) * width * th;
+                            int endIn = th < (thread_num - 1) ? (height / thread_num) * th + (height / thread_num) : height;
+                            for (int j = (height / thread_num) * th; j < endIn; j++) {
                                 int pY = frame->linesize[0] * j;
                                 int pU = (frame->linesize[1]) * (j >> 1);
                                 int pV = (frame->linesize[2]) * (j >> 1);
