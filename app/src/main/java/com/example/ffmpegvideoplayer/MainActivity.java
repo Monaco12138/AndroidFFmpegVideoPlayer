@@ -301,6 +301,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         long endTime = System.currentTimeMillis();
                         updateTextView(Long.toString(endTime - startTime) + "ms");
+                        Log.i("viewProcess:", Long.toString(endTime - startTime) + "ms");
                     } catch (InterruptedException e) {
                         Log.e("Error Exception", "MainActivity error: " + e.getMessage() + e.toString());
                         Thread.currentThread().interrupt();
