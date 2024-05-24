@@ -226,28 +226,28 @@ public:
         }
 
         // process
-        int thread_num = 4;
-        std::vector<std::thread> process_thread(thread_num);
-        for (int th = 0; th < thread_num; th++) {
-            process_thread[th] = std::thread(
-                        [&frame, &outData, width, height, th, thread_num]() {
-                            int yp = (height / thread_num) * width * th;
-                            int endIn = th < (thread_num - 1) ? (height / thread_num) * th + (height / thread_num) : height;
-                            for (int j = (height / thread_num) * th; j < endIn; j++) {
-                                int pY = frame->linesize[0] * j;
-                                int pU = (frame->linesize[1]) * (j >> 1);
-                                int pV = (frame->linesize[2]) * (j >> 1);
-                                for (int i = 0; i < width; i++) {
-                                    int yData = frame->data[0][pY + i];
-                                    int uData = frame->data[1][pU + (i >> 1)];
-                                    int vData = frame->data[2][pV + (i >> 1)];
-                                    outData[yp++] = YUV2RGB(0xff & yData, 0xff & uData, 0xff & vData);
-                                }
-                            }
-                        }
-                    );
-        }
-        for (auto& th: process_thread) th.join();
+//        int thread_num = 2;
+//        std::vector<std::thread> process_thread(thread_num);
+//        for (int th = 0; th < thread_num; th++) {
+//            process_thread[th] = std::thread(
+//                        [&frame, &outData, width, height, th, thread_num]() {
+//                            int yp = (height / thread_num) * width * th;
+//                            int endIn = th < (thread_num - 1) ? (height / thread_num) * th + (height / thread_num) : height;
+//                            for (int j = (height / thread_num) * th; j < endIn; j++) {
+//                                int pY = frame->linesize[0] * j;
+//                                int pU = (frame->linesize[1]) * (j >> 1);
+//                                int pV = (frame->linesize[2]) * (j >> 1);
+//                                for (int i = 0; i < width; i++) {
+//                                    int yData = frame->data[0][pY + i];
+//                                    int uData = frame->data[1][pU + (i >> 1)];
+//                                    int vData = frame->data[2][pV + (i >> 1)];
+//                                    outData[yp++] = YUV2RGB(0xff & yData, 0xff & uData, 0xff & vData);
+//                                }
+//                            }
+//                        }
+//                    );
+//        }
+//        for (auto& th: process_thread) th.join();
 
 //        process_thread[0] = std::thread(
 //                [&frame, &outData, width, height]() {
@@ -284,18 +284,18 @@ public:
 //        );
 //        for (auto& th: process_thread) th.join();
 
-//        int yp = 0;
-//        for (int j = 0; j < height; j++) {
-//            int pY = frame->linesize[0] * j;
-//            int pU = (frame->linesize[1]) * (j >> 1);
-//            int pV = (frame->linesize[2]) * (j >> 1);
-//            for (int i = 0; i < width; i++) {
-//                int yData = frame->data[0][pY + i];
-//                int uData = frame->data[1][pU + (i >> 1)];
-//                int vData = frame->data[2][pV + (i >> 1)];
-//                outData[yp++] = YUV2RGB(0xff & yData, 0xff & uData, 0xff & vData);
-//            }
-//        }
+        int yp = 0;
+        for (int j = 0; j < height; j++) {
+            int pY = frame->linesize[0] * j;
+            int pU = (frame->linesize[1]) * (j >> 1);
+            int pV = (frame->linesize[2]) * (j >> 1);
+            for (int i = 0; i < width; i++) {
+                int yData = frame->data[0][pY + i];
+                int uData = frame->data[1][pU + (i >> 1)];
+                int vData = frame->data[2][pV + (i >> 1)];
+                outData[yp++] = YUV2RGB(0xff & yData, 0xff & uData, 0xff & vData);
+            }
+        }
 
         env->ReleaseIntArrayElements(outFrame, outData, 0);
         env->CallStaticVoidMethod(this->cls, this->funcMethod, outFrame);

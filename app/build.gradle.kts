@@ -41,6 +41,9 @@ android {
             version = "3.22.1"
         }
     }
+    buildFeatures {
+        mlModelBinding = true
+    }
 }
 
 dependencies {

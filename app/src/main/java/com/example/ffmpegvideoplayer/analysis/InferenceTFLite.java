@@ -29,11 +29,19 @@ public class InferenceTFLite {
     private String MODEL_FILE = "quicsr_float32_epoch_200.tflite";
     private final Size INPNUT_SIZE = new Size(960, 540);
     private final int[] OUTPUT_SIZE = new int[] {1, 1080, 1920, 3};
+
+//    private TensorBuffer hwcOutputTensorBuffer;
+    ImageProcessor imageProcessor;
     public void initialModel(Context activity) {
         try {
             // 要tflite 2.16.1 版本才支持 Transpose version 6操作
             ByteBuffer tfliteModel = FileUtil.loadMappedFile(activity, MODEL_FILE);
             tflite = new Interpreter(tfliteModel, options);
+//            hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.FLOAT32);
+            imageProcessor = new ImageProcessor.Builder()
+                    .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
+                    .add(new NormalizeOp(0, 255))
+                    .build();
             Log.i("[Inference TFLite]", "Success loading model");
         } catch (IOException e){
             Log.e("[Inference TFLite]", "Error loading model: ", e);
@@ -43,22 +51,38 @@ public class InferenceTFLite {
     public int[] getOUTPUT_SIZE() {
         return OUTPUT_SIZE;
     }
-    public int[] superResolution(Bitmap bitmap) {
-        // Tflite导出默认的量化即可
-        TensorImage modelInput = new TensorImage(DataType.FLOAT32);
-        ImageProcessor imageProcessor = new ImageProcessor.Builder()
-                .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
-                .add(new NormalizeOp(0, 255))
-                .build();
 
-        modelInput.load(bitmap);
-        modelInput = imageProcessor.process(modelInput);
-
+    public TensorBuffer superResolution(TensorImage modelInput) {
         TensorBuffer hwcOutputTensorBuffer;
         hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.FLOAT32);
         if (tflite != null) {
             tflite.run(modelInput.getBuffer(), hwcOutputTensorBuffer.getBuffer());
         }
+        return hwcOutputTensorBuffer;
+    }
+    public void superResolution(Bitmap bitmap, int[] pixels) {
+        // Tflite导出默认的量化即可
+
+        long startTime = System.currentTimeMillis();
+        TensorImage modelInput = new TensorImage(DataType.FLOAT32);
+//        ImageProcessor imageProcessor = new ImageProcessor.Builder()
+//                .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
+//                .add(new NormalizeOp(0, 255))
+//                .build();
+
+        modelInput.load(bitmap);
+        modelInput = imageProcessor.process(modelInput);
+        long endTime = System.currentTimeMillis();
+        Log.i("TFLite pre time:", Long.toString(endTime - startTime) + "ms");
+
+        startTime = System.currentTimeMillis();
+        TensorBuffer hwcOutputTensorBuffer;
+        hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.FLOAT32);
+        if (tflite != null) {
+            tflite.run(modelInput.getBuffer(), hwcOutputTensorBuffer.getBuffer());
+        }
+        endTime = System.currentTimeMillis();
+        Log.i("TFLite inference time:", Long.toString(endTime - startTime) + "ms");
 
         int[] outshape = hwcOutputTensorBuffer.getShape();
         // [b, h, w, c]
@@ -68,8 +92,8 @@ public class InferenceTFLite {
             Log.i("[Inference TFLite]", "output TensorBuffer shape" + i + " " + outshape[i]);
         }
 
+        startTime = System.currentTimeMillis();
         float[] hwcOutputData = hwcOutputTensorBuffer.getFloatArray();
-        int[] pixels = new int[outHeight * outWidth];
         int yp = 0;
         for (int h = 0; h < outHeight; h++) {
             for (int w = 0; w < outWidth; w++) {
@@ -82,7 +106,8 @@ public class InferenceTFLite {
                 pixels[yp++] = 0xff000000 | (r << 16 & 0xff0000) | (g << 8 & 0xff00) | (b & 0xff);
             }
         }
-        return  pixels;
+        endTime = System.currentTimeMillis();
+        Log.i("TFLite after time:", Long.toString(endTime - startTime) + "ms");
     }
     public void addNNApiDelegate() {
         NnApiDelegate nnApiDelegate = null;
