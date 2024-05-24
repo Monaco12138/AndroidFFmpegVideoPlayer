@@ -33,7 +33,7 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int QUEUE_CAPACITY = 10;
+    private static final int QUEUE_CAPACITY = 128;
 
     // 这个队列不能开太大，如果是 540P的图像数据的话，一个int[540*960]大小大概为2MB
     // 当时设置队列为4096的话程序运行一段时间就炸，因为内存爆了，当程序运行内存超过700MB以后就会Out of memory
@@ -44,8 +44,8 @@ public class MainActivity extends AppCompatActivity {
     private static BlockingQueue<int[]> viewOutQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
 
     // width, height
-    private static int[] videoShape = new int[] {960, 540};
-    private final Size outSize = new Size(1920, 1080);
+    private static int[] videoShape = new int[] {480, 270};
+    private final Size outSize = new Size(960, 540);
     static {
         System.loadLibrary("ffmpegvideoplayer");
     }
@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView frameSizeTextView;
     private TextView fpsTextView;
-    private boolean isPICO = false;
+    private boolean isPICO = true;
     private InferenceTFLite srTFLite;
     private int[] outPixels;
 
@@ -68,7 +68,12 @@ public class MainActivity extends AppCompatActivity {
     private void initModel() {
         try {
             this.srTFLite = new InferenceTFLite();
-            this.srTFLite.addNNApiDelegate();
+            if (isPICO) {
+                this.srTFLite.addGPUDelegate();
+            } else {
+                this.srTFLite.addNNApiDelegate();
+            }
+//            this.srTFLite.addNNApiDelegate();
             this.srTFLite.initialModel(this);
         } catch (Exception e) {
             Log.e("Error Exception", "MainActivity initial model error: " + e.getMessage() + e.toString());
@@ -86,9 +91,9 @@ public class MainActivity extends AppCompatActivity {
         imageView = findViewById(R.id.imageView);
         handler = new Handler(Looper.getMainLooper());
 
-        outPixels = new int [1920 * 1080];
+        outPixels = new int [outSize.getHeight() * outSize.getWidth()];
         inputBitmap = Bitmap.createBitmap(videoShape[0], videoShape[1], Bitmap.Config.ARGB_8888);
-        outputBitmap = Bitmap.createBitmap(1920, 1080, Bitmap.Config.ARGB_8888);
+        outputBitmap = Bitmap.createBitmap(outSize.getWidth(), outSize.getHeight(), Bitmap.Config.ARGB_8888);
 
         imageProcessor = new ImageProcessor.Builder()
                 .add(new ResizeOp(videoShape[1], videoShape[0], ResizeOp.ResizeMethod.BILINEAR))
@@ -110,8 +115,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void surfaceCreated(@NonNull SurfaceHolder holder) {
 //               ReceiveAndShow();
-//                ReceiveSRShow();
-                mainProcess();
+                ReceiveSRShow();
+//                mainProcess();
             }
 
             @Override

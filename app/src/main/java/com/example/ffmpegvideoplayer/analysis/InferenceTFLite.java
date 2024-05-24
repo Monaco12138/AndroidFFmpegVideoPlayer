@@ -19,6 +19,8 @@ import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.ops.ResizeOp;
 import org.tensorflow.lite.support.metadata.MetadataExtractor;
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
+import org.tensorflow.lite.gpu.CompatibilityList;
+import org.tensorflow.lite.gpu.GpuDelegate;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -26,9 +28,9 @@ import java.nio.ByteBuffer;
 public class InferenceTFLite {
     private Interpreter tflite;
     Interpreter.Options options = new Interpreter.Options();
-    private String MODEL_FILE = "quicsr_float32_epoch_200.tflite";
-    private final Size INPNUT_SIZE = new Size(960, 540);
-    private final int[] OUTPUT_SIZE = new int[] {1, 1080, 1920, 3};
+    private String MODEL_FILE = "quicsr_270p.tflite";
+    private final Size INPNUT_SIZE = new Size(480, 270);
+    private final int[] OUTPUT_SIZE = new int[] {1, 540, 960, 3};
 
 //    private TensorBuffer hwcOutputTensorBuffer;
     ImageProcessor imageProcessor;
@@ -129,17 +131,18 @@ public class InferenceTFLite {
         }
     }
 
-    //    public void addGPUDelegate() {
-//        CompatibilityList compatibilityList = new CompatibilityList();
-//        if(compatibilityList.isDelegateSupportedOnThisDevice()){
-//            GpuDelegate.Options delegateOptions = compatibilityList.getBestOptionsForThisDevice();
-//            GpuDelegate gpuDelegate = new GpuDelegate(delegateOptions);
-//            options.addDelegate(gpuDelegate);
-//            Log.i("Debug tfliteSupport", "using gpu delegate.");
-//        } else {
-//            addThread(4);
-//        }
-//    }
+    // 2.8.0 tensorflow 才能用这个代理，2.16.1用不了
+    public void addGPUDelegate() {
+        CompatibilityList compatibilityList = new CompatibilityList();
+        if(compatibilityList.isDelegateSupportedOnThisDevice()){
+            GpuDelegate.Options delegateOptions = compatibilityList.getBestOptionsForThisDevice();
+            GpuDelegate gpuDelegate = new GpuDelegate(delegateOptions);
+            options.addDelegate(gpuDelegate);
+            Log.i("Debug tfliteSupport", "using gpu delegate.");
+        } else {
+            addThread(4);
+        }
+    }
 
     public void addThread(int thread) {
         options.setNumThreads(thread);
