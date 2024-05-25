@@ -21,6 +21,9 @@ import org.tensorflow.lite.support.metadata.MetadataExtractor;
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 import org.tensorflow.lite.gpu.CompatibilityList;
 import org.tensorflow.lite.gpu.GpuDelegate;
+import org.tensorflow.lite.support.common.ops.DequantizeOp;
+import org.tensorflow.lite.support.common.ops.QuantizeOp;
+
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -31,7 +34,9 @@ public class InferenceTFLite {
     private String MODEL_FILE = "quicsr_270p.tflite";
     private final Size INPNUT_SIZE = new Size(480, 270);
     private final int[] OUTPUT_SIZE = new int[] {1, 540, 960, 3};
-
+    private Boolean IS_INT8 = false;
+    MetadataExtractor.QuantizationParams input5SINT8QuantParams = new MetadataExtractor.QuantizationParams(0.003921568859368563f, 0);
+    MetadataExtractor.QuantizationParams output5SINT8QuantParams = new MetadataExtractor.QuantizationParams(0.003921568859368563f, 0);
 //    private TensorBuffer hwcOutputTensorBuffer;
     ImageProcessor imageProcessor;
     public void initialModel(Context activity) {
@@ -40,10 +45,19 @@ public class InferenceTFLite {
             ByteBuffer tfliteModel = FileUtil.loadMappedFile(activity, MODEL_FILE);
             tflite = new Interpreter(tfliteModel, options);
 //            hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.FLOAT32);
-            imageProcessor = new ImageProcessor.Builder()
-                    .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
-                    .add(new NormalizeOp(0, 255))
-                    .build();
+            if (IS_INT8) {
+                imageProcessor = new ImageProcessor.Builder()
+                        .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
+                        .add(new NormalizeOp(0, 255))
+                        .add(new QuantizeOp(input5SINT8QuantParams.getZeroPoint(), input5SINT8QuantParams.getScale()))
+                        .add(new CastOp(DataType.UINT8))
+                        .build();
+            } else {
+                imageProcessor = new ImageProcessor.Builder()
+                        .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
+                        .add(new NormalizeOp(0, 255))
+                        .build();
+            }
             Log.i("[Inference TFLite]", "Success loading model");
         } catch (IOException e){
             Log.e("[Inference TFLite]", "Error loading model: ", e);
@@ -66,7 +80,12 @@ public class InferenceTFLite {
         // Tflite导出默认的量化即可
 
         long startTime = System.currentTimeMillis();
-        TensorImage modelInput = new TensorImage(DataType.FLOAT32);
+        TensorImage modelInput;
+        if (IS_INT8) {
+            modelInput = new TensorImage(DataType.UINT8);
+        } else {
+            modelInput = new TensorImage(DataType.FLOAT32);
+        }
 //        ImageProcessor imageProcessor = new ImageProcessor.Builder()
 //                .add(new ResizeOp(INPNUT_SIZE.getHeight(), INPNUT_SIZE.getWidth(), ResizeOp.ResizeMethod.BILINEAR))
 //                .add(new NormalizeOp(0, 255))
@@ -79,12 +98,23 @@ public class InferenceTFLite {
 
         startTime = System.currentTimeMillis();
         TensorBuffer hwcOutputTensorBuffer;
-        hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.FLOAT32);
+        if (IS_INT8) {
+            hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.UINT8);
+        } else {
+            hwcOutputTensorBuffer = TensorBuffer.createFixedSize(OUTPUT_SIZE, DataType.FLOAT32);
+        }
         if (tflite != null) {
             tflite.run(modelInput.getBuffer(), hwcOutputTensorBuffer.getBuffer());
         }
         endTime = System.currentTimeMillis();
         Log.i("TFLite inference time:", Long.toString(endTime - startTime) + "ms");
+
+        if (IS_INT8) {
+            TensorProcessor tensorProcessor = new TensorProcessor.Builder()
+                    .add(new DequantizeOp(output5SINT8QuantParams.getZeroPoint(), output5SINT8QuantParams.getScale()))
+                    .build();
+            hwcOutputTensorBuffer = tensorProcessor.process(hwcOutputTensorBuffer);
+        }
 
         int[] outshape = hwcOutputTensorBuffer.getShape();
         // [b, h, w, c]

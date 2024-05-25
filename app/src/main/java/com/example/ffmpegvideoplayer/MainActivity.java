@@ -40,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
     // 所以要设小点
     private static BlockingQueue<int[]> rgbBytesQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
     private static BlockingQueue<TensorImage> modelInputQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
-    private static BlockingQueue<TensorBuffer> modelOutputQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+    private static BlockingQueue<TensorBuffer> modelOutputQueue = new ArrayBlockingQueue<>(16);
     private static BlockingQueue<int[]> viewOutQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
 
     // width, height
@@ -111,24 +111,25 @@ public class MainActivity extends AppCompatActivity {
         }).start();
 
 //        ReceiveSRShow2();
-        surfaceHolder.addCallback(new SurfaceHolder.Callback() {
-            @Override
-            public void surfaceCreated(@NonNull SurfaceHolder holder) {
-//               ReceiveAndShow();
-                ReceiveSRShow();
-//                mainProcess();
-            }
-
-            @Override
-            public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-
-            }
-
-            @Override
-            public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
-
-            }
-        });
+        mainProcess();
+//        surfaceHolder.addCallback(new SurfaceHolder.Callback() {
+//            @Override
+//            public void surfaceCreated(@NonNull SurfaceHolder holder) {
+////               ReceiveAndShow();
+//                ReceiveSRShow();
+////                mainProcess();
+//            }
+//
+//            @Override
+//            public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
+//
+//            }
+//
+//            @Override
+//            public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+//
+//            }
+//        });
     }
     public void ReceiveAndShow() {
         new Thread(new Runnable() {
@@ -180,10 +181,10 @@ public class MainActivity extends AppCompatActivity {
         inference();
 
         // 从modelOutputQueue 中 拿数据转换
-        afterProcess();
+        afterProcess2();
 
         // 从viewOutQueue 中 拿数据输出
-        viewProcess();
+//        viewProcess();
     }
 
     public void preProcess() {
@@ -275,6 +276,54 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    public void afterProcess2() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        long startTime = System.currentTimeMillis();
+                        TensorBuffer hwcOutputTensorBuffer = modelOutputQueue.take();
+                        float[] hwcOutputData = hwcOutputTensorBuffer.getFloatArray();
+                        int outHeight = outSize.getHeight();
+                        int outWidth = outSize.getWidth();
+
+                        int yp = 0;
+                        for (int h = 0; h < outHeight; h++) {
+                            for (int w = 0; w < outWidth; w++) {
+                                int r = (int) (hwcOutputData[h * outWidth * 3 + w * 3] * 255);
+                                int g = (int) (hwcOutputData[h * outWidth * 3 + w * 3 + 1] * 255);
+                                int b = (int) (hwcOutputData[h * outWidth * 3 + w * 3 + 2] * 255);
+                                r = r > 255 ? 255 : (Math.max(r, 0));
+                                g = g > 255 ? 255 : (Math.max(g, 0));
+                                b = b > 255 ? 255 : (Math.max(b, 0));
+                                outPixels[yp++] = 0xff000000 | (r << 16 & 0xff0000) | (g << 8 & 0xff00) | (b & 0xff);
+                            }
+                        }
+
+                        Bitmap outBitmap = Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888);
+                        outBitmap.setPixels(outPixels, 0, outWidth, 0, 0, outWidth, outHeight);
+
+                        Matrix matrix = new Matrix();
+                        if (!isPICO) {
+                            matrix.postRotate(90);
+                        }
+                        Bitmap postTransformImageBitmap = Bitmap.createBitmap(outBitmap, 0, 0, outWidth, outHeight, matrix, false);
+
+                        handler.post(()-> imageView.setImageBitmap(postTransformImageBitmap));
+                        long endTime = System.currentTimeMillis();
+                        long costTime = endTime - startTime;
+                        updateTextView(Long.toString(costTime) + "ms");
+                        Log.i("MainActivity time", Long.toString(costTime) + "ms");
+                    } catch (InterruptedException e) {
+                        Log.e("Error Exception", "MainActivity error: " + e.getMessage() + e.toString());
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }).start();
+    }
     public void viewProcess() {
         new Thread(new Runnable() {
             @Override
