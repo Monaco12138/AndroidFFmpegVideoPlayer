@@ -1,10 +1,4 @@
-# The is a video player build by ffmepg for android
+# AndroidFFmpegVideoPlayer
 
-经过测试，不同的代理部署模型对不同的tflite 量化有着不同的加速效果
-
-在Xiaomi12s 上测的 tflite float32 动态量化 + nnapi 代理提速明显
-
-在PICO4 上测的 gpu代理提速明显 
-
-## TODO
-测试PICO4 上 tflite int8 量化 + gpu代理
+这是一个集成了超分增强的视频播放器，使用了ffmpeg进行拉流，将得到的视频流超分增强并渲染展示出来。
+该项目使用Android NDK开发，集成ffmpeg方法，可以获取拉流完后的每一帧视频数据，方便后续部署属于你的神经网络模型。具体如何训练，量化导出测试自定义的模型可以见[此仓库](https://github.com/Monaco12138/SR_Tensorflow)
