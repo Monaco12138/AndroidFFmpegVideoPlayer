@@ -42,7 +42,11 @@ int avFrameYUV420ToARGB8888(AVFrame* frame) {
             LOGI("outData is nullptr");
             return -1;
         }
-        // avFrame to jint*
+        /* avFrame to jint*
+        ...
+        */
+        
+        // call jni to putData
         env->ReleaseIntArrayElements(outFrame, outData, 0);
         env->CallStaticVoidMethod(this->cls, this->funcMethod, outFrame);
         env->DeleteLocalRef(outFrame);
@@ -67,9 +71,13 @@ public void ModelInference() {
                 int [] rgbData = rgbBytesQueue.take();
                 Bitmap rgbBitmap = Bitmap.createBitmap(outputShape[0], outputShape[1], Bitmap.Config.ARGB_8888);
                 rgbBitmap.setPixels(rgbData, 0, outputShape[0], 0, 0, outputShape[0], outputShape[1]);
-                // model inference: input Bitmap, output Bitmap
+                /* model inference: input Bitmap, output Bitmap
+                ...
+                */
 
-                // output Bitmap to ImageView
+                /* output Bitmap to ImageView
+                ...
+                */
             }
         }
     }
